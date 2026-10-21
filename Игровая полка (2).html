@@ -1,0 +1,499 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Игровая полка</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600&family=Unbounded:wght@600;800&display=swap">
+<style>
+/* Layout: шапка, полка карточек-игр; по клику карточка раскрывается в игровое поле с кнопками управления. */
+:root {
+  --bg: #0d1017;
+  --surface: #151a24;
+  --surface-2: #1c2330;
+  --line: #2a3242;
+  --fg: #e8ecf3;
+  --muted: #8d98ab;
+  --accent: #ff4f9a;
+  --accent-ink: #1a0610;
+  --good: #5ad6a0;
+  --font-display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --font-body: "Onest", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f2f3f8; --surface: #ffffff; --surface-2: #e6e9f2; --line: #d5d9e6;
+    --fg: #151a28; --muted: #5d677b; --accent: #d11f6b; --accent-ink: #ffffff; --good: #12805a;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f2f3f8; --surface: #ffffff; --surface-2: #e6e9f2; --line: #d5d9e6;
+  --fg: #151a28; --muted: #5d677b; --accent: #d11f6b; --accent-ink: #ffffff; --good: #12805a;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-block: 32px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+header { display: flex; flex-direction: column; gap: 10px; }
+h1 { font-family: var(--font-display); font-weight: 800; margin: 0; font-size: clamp(30px, 7vw, 60px); line-height: 1.02; letter-spacing: -0.02em; text-wrap: balance; }
+h1 span { color: var(--accent); }
+.lead { margin: 0; color: var(--muted); max-width: 62ch; font-size: 16px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button { font: inherit; color: inherit; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
+.card { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; min-width: 0; }
+.cover {
+  aspect-ratio: 16 / 9; max-width: 100%; display: flex; align-items: center; justify-content: center;
+  background:
+    radial-gradient(120% 90% at 85% 10%, hsl(calc(var(--h) + 40) 80% 45% / 0.55), transparent 60%),
+    linear-gradient(135deg, hsl(var(--h) 55% 26%), hsl(calc(var(--h) + 30) 60% 12%));
+}
+.ini { font-family: var(--font-display); font-weight: 800; font-size: 44px; letter-spacing: -0.02em; color: #fff; opacity: 0.92; }
+.body { display: flex; flex-direction: column; gap: 10px; padding: 14px; flex: 1; }
+h3 { margin: 0; font-size: 18px; line-height: 1.25; }
+.desc { margin: 0; color: var(--muted); font-size: 14px; flex: 1; }
+.foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding-top: 10px; border-top: 1px solid var(--line); }
+.rec { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.buy { border: 0; cursor: pointer; padding: 9px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; background: var(--accent); color: var(--accent-ink); }
+.buy:hover { filter: brightness(1.08); }
+.chip { height: 36px; padding: 0 14px; border-radius: 999px; cursor: pointer; background: var(--surface); border: 1px solid var(--line); font-size: 14px; }
+.chip:hover { border-color: var(--muted); }
+
+#stage { width: 100%; max-width: 440px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.score { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.score b { color: var(--fg); }
+#stage h2 { margin: 0; font-family: var(--font-display); font-size: 26px; letter-spacing: -0.01em; }
+.hint { margin: 0; color: var(--muted); font-size: 14px; }
+.board { position: relative; display: flex; justify-content: center; }
+.board.swipe { touch-action: none; }
+#play { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.cv { display: block; max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; touch-action: none; }
+.over { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center; padding: 16px; border-radius: 8px; background: color-mix(in srgb, var(--bg) 82%, transparent); }
+.over p { margin: 0; font-family: var(--font-display); font-size: 22px; text-wrap: balance; }
+.pad { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.pad button { min-width: 58px; height: 52px; padding: 0 14px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); font-size: 18px; cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+.pad button:active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.pad button.wide { font-size: 14px; font-weight: 600; }
+
+/* 2048 */
+.g2048 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: min(100%, 360px); aspect-ratio: 1; padding: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.g2048 .t { display: flex; align-items: center; justify-content: center; border-radius: 6px; background: var(--surface-2); font-family: var(--font-display); font-weight: 800; font-size: clamp(16px, 5vw, 26px); }
+.g2048 .t[style] { background: hsl(calc(340 + var(--v) * 22) 70% calc(72% - var(--v) * 2.4%)); color: #1b1020; }
+/* Сапёр */
+.gmine { display: grid; grid-template-columns: repeat(9, 1fr); gap: 3px; width: min(100%, 360px); }
+.gmine button { aspect-ratio: 1; padding: 0; border-radius: 4px; border: 1px solid var(--line); background: var(--surface-2); font-weight: 700; font-size: clamp(13px, 4vw, 18px); cursor: pointer; }
+.gmine button.o { background: var(--surface); cursor: default; }
+.gmine button.b { background: var(--accent); color: var(--accent-ink); }
+.n1 { color: #4aa3ff; } .n2 { color: #3fc58a; } .n3 { color: #ff6b6b; } .n4 { color: #a78bfa; } .n5, .n6, .n7, .n8 { color: #f5a524; }
+/* Память */
+.gmem { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: min(100%, 340px); }
+.gmem button { aspect-ratio: 1; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); font-size: clamp(24px, 8vw, 36px); cursor: pointer; padding: 0; color: transparent; }
+.gmem button.up { background: var(--surface); color: var(--fg); }
+.gmem button.ok { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); cursor: default; }
+.ext { display: flex; flex-direction: column; gap: 14px; }
+.ext h2 { margin: 0; font-family: var(--font-display); font-size: clamp(20px, 4vw, 28px); letter-spacing: -0.01em; }
+.ext .lead { font-size: 14px; }
+.tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.tag { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.tag.web { color: var(--good); border-color: var(--good); }
+a.buy { text-decoration: none; display: inline-block; }
+.stats { display: flex; gap: 8px; flex-wrap: wrap; }
+.pill { padding: 6px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.pill b { color: var(--fg); font-family: var(--font-display); margin-right: 6px; }
+.tools { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; flex-direction: column; gap: 10px; padding: 10px 0; background: var(--bg); border-bottom: 1px solid var(--line); }
+.tools input { width: 100%; height: 42px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); font: inherit; }
+.tabs, .flags { display: flex; gap: 6px; flex-wrap: wrap; }
+.tab { height: 34px; padding: 0 12px; border-radius: 999px; cursor: pointer; background: var(--surface); border: 1px solid var(--line); font-size: 13px; }
+.tab b { margin-left: 6px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.flags .chip { height: 34px; font-size: 13px; }
+.tab.on, .chip.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.tab.on b { color: inherit; }
+.res { font-size: 12px; color: var(--muted); }
+.tag.weak { color: #f5a524; border-color: #f5a524; }
+footer { color: var(--muted); font-size: 13px; max-width: 70ch; }
+@media (prefers-reduced-motion: no-preference) { .card { transition: transform 0.15s ease; } .card:hover { transform: translateY(-3px); } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Игровая <span>полка</span></h1>
+    <p class="lead">Каталог бесплатных игр: шесть мини-игр прямо на странице и подборка чужих игр с официальных сайтов. Фильтруйте по жанру, выбирайте «в браузере» или «для слабых ПК». Рекорды мини-игр сохраняются в вашем браузере.</p>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <section class="tools" id="ext">
+    <input id="q" type="search" placeholder="Поиск по играм…" aria-label="Поиск по играм">
+    <div class="tabs" id="tabs"></div>
+    <div class="flags" id="flags"></div>
+    <div class="res" id="res"></div>
+  </section>
+
+  <main class="grid" id="shelf"></main>
+
+  <section id="stage" hidden>
+    <div class="bar">
+      <button class="chip" id="back" type="button">← Все игры</button>
+      <div class="score">Счёт: <b id="sc">0</b> · Рекорд: <b id="best">—</b></div>
+    </div>
+    <h2 id="gt"></h2>
+    <p class="hint" id="gh"></p>
+    <div class="board" id="board">
+      <div id="play"></div>
+      <div class="over" id="over" hidden><p id="om"></p><button class="buy" id="again" type="button">Играть снова</button></div>
+    </div>
+    <div class="pad" id="pad"></div>
+  </section>
+
+  <footer>Настоящие PC-игры вроде Elden Ring или Dota 2 в браузере не запускаются, поэтому свои игры здесь простые. Чужие открываются на сайтах авторов; перед скачиванием проверяйте актуальные версии на официальных страницах.</footer>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const rnd = (n) => Math.floor(Math.random() * n);
+const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function mk(root, w, h) { const c = document.createElement("canvas"); c.width = w; c.height = h; c.className = "cv"; root.appendChild(c); return c; }
+
+/* ---------- Змейка ---------- */
+function snake(root, api) {
+  const N = 18, C = 20, cv = mk(root, N * C, N * C), x = cv.getContext("2d");
+  let s = [{ x: 9, y: 9 }, { x: 8, y: 9 }, { x: 7, y: 9 }], d = { x: 1, y: 0 }, nd = d, sc = 0, f;
+  const place = () => { let p; do { p = { x: rnd(N), y: rnd(N) }; } while (s.some((q) => q.x === p.x && q.y === p.y)); return p; };
+  f = place();
+  function draw() {
+    x.fillStyle = css("--surface-2"); x.fillRect(0, 0, N * C, N * C);
+    x.fillStyle = css("--accent"); x.beginPath(); x.arc(f.x * C + C / 2, f.y * C + C / 2, C / 2 - 3, 0, 7); x.fill();
+    s.forEach((q, i) => { x.fillStyle = i ? css("--good") : css("--fg"); x.fillRect(q.x * C + 1, q.y * C + 1, C - 2, C - 2); });
+  }
+  const t = setInterval(() => {
+    d = nd; const h = { x: s[0].x + d.x, y: s[0].y + d.y };
+    if (h.x < 0 || h.y < 0 || h.x >= N || h.y >= N || s.some((q) => q.x === h.x && q.y === h.y)) { clearInterval(t); api.over("Змейка врезалась"); return; }
+    s.unshift(h);
+    if (h.x === f.x && h.y === f.y) { sc++; api.score(sc); f = place(); } else s.pop();
+    draw();
+  }, 115);
+  draw();
+  return {
+    act(a, down) { if (!down) return; const m = { left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1] }[a]; if (!m || (m[0] === -d.x && m[1] === -d.y)) return; nd = { x: m[0], y: m[1] }; },
+    destroy() { clearInterval(t); }
+  };
+}
+
+/* ---------- 2048 ---------- */
+function g2048(root, api) {
+  const el = document.createElement("div"); el.className = "g2048"; root.appendChild(el);
+  let g = Array.from({ length: 4 }, () => Array(4).fill(0)), sc = 0;
+  const add = () => { const e = []; g.forEach((r, i) => r.forEach((v, j) => { if (!v) e.push([i, j]); })); if (!e.length) return; const [i, j] = e[rnd(e.length)]; g[i][j] = Math.random() < 0.9 ? 2 : 4; };
+  const render = () => { el.innerHTML = g.flat().map((v) => `<div class="t"${v ? ` style="--v:${Math.log2(v)}"` : ""}>${v || ""}</div>`).join(""); };
+  const slide = (row) => { const a = row.filter(Boolean); for (let i = 0; i < a.length - 1; i++) if (a[i] === a[i + 1]) { a[i] *= 2; sc += a[i]; a.splice(i + 1, 1); } while (a.length < 4) a.push(0); return a; };
+  const tr = (m) => m[0].map((_, j) => m.map((r) => r[j]));
+  const L = (m) => m.map(slide), R = (m) => m.map((r) => slide(r.slice().reverse()).reverse());
+  const stuck = () => { for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { if (!g[i][j]) return false; if (j < 3 && g[i][j] === g[i][j + 1]) return false; if (i < 3 && g[i][j] === g[i + 1][j]) return false; } return true; };
+  add(); add(); render();
+  return {
+    act(a, down) {
+      if (!down) return;
+      const n = a === "left" ? L(g) : a === "right" ? R(g) : a === "up" ? tr(L(tr(g))) : a === "down" ? tr(R(tr(g))) : null;
+      if (!n || JSON.stringify(n) === JSON.stringify(g)) return;
+      g = n; add(); render(); api.score(sc);
+      if (g.flat().includes(2048)) api.over("Собрано 2048!");
+      else if (stuck()) api.over("Ходов больше нет");
+    },
+    destroy() {}
+  };
+}
+
+/* ---------- Сапёр ---------- */
+function mines(root, api) {
+  const W = 9, H = 9, M = 10;
+  let mine = [], open = [], flag = [], first = true, flagMode = false, done = false, cnt = 0;
+  const tog = document.createElement("button"); tog.className = "chip"; tog.type = "button"; tog.textContent = "Режим: открыть"; root.appendChild(tog);
+  const el = document.createElement("div"); el.className = "gmine"; root.appendChild(el);
+  for (let i = 0; i < W * H; i++) { mine.push(false); open.push(false); flag.push(false); }
+  const nb = (i) => { const r = Math.floor(i / W), c = i % W, o = []; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { if (!a && !b) continue; const y = r + a, z = c + b; if (y >= 0 && y < H && z >= 0 && z < W) o.push(y * W + z); } return o; };
+  const num = (i) => nb(i).filter((j) => mine[j]).length;
+  function render() {
+    el.innerHTML = mine.map((m, i) => {
+      if (open[i]) { if (m) return `<button class="b" data-i="${i}" type="button">*</button>`; const n = num(i); return `<button class="o ${n ? "n" + n : ""}" data-i="${i}" type="button">${n || ""}</button>`; }
+      if (done && m) return `<button class="b" data-i="${i}" type="button">*</button>`;
+      return `<button data-i="${i}" type="button">${flag[i] ? "⚑" : ""}</button>`;
+    }).join("");
+  }
+  function reveal(i) {
+    const st = [i];
+    while (st.length) { const k = st.pop(); if (open[k] || flag[k]) continue; open[k] = true; cnt++; if (!num(k)) nb(k).forEach((j) => { if (!open[j]) st.push(j); }); }
+  }
+  function click(i) {
+    if (done || open[i]) return;
+    if (flagMode) { flag[i] = !flag[i]; render(); return; }
+    if (flag[i]) return;
+    if (first) { first = false; let k = 0; while (k < M) { const p = rnd(W * H); if (p !== i && !mine[p]) { mine[p] = true; k++; } } }
+    if (mine[i]) { done = true; open[i] = true; render(); api.over("Подрыв на мине"); return; }
+    reveal(i); api.score(cnt); render();
+    if (cnt === W * H - M) { done = true; api.over("Все мины найдены!", true); }
+  }
+  tog.onclick = () => { flagMode = !flagMode; tog.textContent = flagMode ? "Режим: флажок" : "Режим: открыть"; };
+  el.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) click(Number(b.dataset.i)); });
+  el.addEventListener("contextmenu", (e) => { e.preventDefault(); const b = e.target.closest("button"); if (b && !done && !open[b.dataset.i]) { flag[b.dataset.i] = !flag[b.dataset.i]; render(); } });
+  render();
+  return { act() {}, destroy() {} };
+}
+
+/* ---------- Кирпичи ---------- */
+function bricks(root, api) {
+  const W = 360, H = 420, cv = mk(root, W, H), x = cv.getContext("2d");
+  const pw = 64, ph = 10, py = H - 30, bw = W / 8, bh = 18, br = 6;
+  let px = W / 2 - pw / 2, held = {}, bx = W / 2, by = py - br, vx = 0, vy = 0, lives = 3, sc = 0, waiting = true, raf = 0, alive = true;
+  const B = []; for (let r = 0; r < 6; r++) for (let c = 0; c < 8; c++) B.push({ x: c * bw, y: 44 + r * bh, r, on: true });
+  const launch = () => { if (waiting) { waiting = false; const sp = 4.4, a = (Math.random() - 0.5) * 0.7; vx = sp * Math.sin(a); vy = -sp * Math.cos(a); } };
+  function loop() {
+    if (!alive) return;
+    if (held.left) px -= 5; if (held.right) px += 5; px = Math.max(0, Math.min(W - pw, px));
+    if (waiting) { bx = px + pw / 2; by = py - br; }
+    else {
+      bx += vx; by += vy;
+      if (bx < br && vx < 0) vx = -vx; if (bx > W - br && vx > 0) vx = -vx; if (by < br && vy < 0) vy = -vy;
+      if (vy > 0 && by + br >= py && by + br <= py + ph + 6 && bx >= px - 4 && bx <= px + pw + 4) { const rel = Math.max(-1, Math.min(1, (bx - (px + pw / 2)) / (pw / 2))), a = rel * 1.0, sp = 4.6; vx = sp * Math.sin(a); vy = -sp * Math.cos(a); }
+      for (const b of B) if (b.on && bx > b.x && bx < b.x + bw && by > b.y && by < b.y + bh) { b.on = false; vy = -vy; sc += 10; api.score(sc); break; }
+      if (by > H + 10) { lives--; waiting = true; vx = vy = 0; if (!lives) { alive = false; draw(); api.over("Мячи закончились"); return; } }
+      if (B.every((b) => !b.on)) { alive = false; draw(); api.over("Все кирпичи разбиты!"); return; }
+    }
+    draw(); raf = requestAnimationFrame(loop);
+  }
+  function draw() {
+    x.fillStyle = css("--surface-2"); x.fillRect(0, 0, W, H);
+    B.forEach((b) => { if (b.on) { x.fillStyle = `hsl(${340 + b.r * 28} 70% 58%)`; x.fillRect(b.x + 1, b.y + 1, bw - 2, bh - 2); } });
+    x.fillStyle = css("--fg"); x.fillRect(px, py, pw, ph);
+    x.beginPath(); x.arc(bx, by, br, 0, 7); x.fillStyle = css("--accent"); x.fill();
+    x.fillStyle = css("--muted"); x.font = "13px sans-serif"; x.textAlign = "left"; x.fillText("Жизни: " + lives, 10, 20);
+    if (waiting && alive) { x.textAlign = "center"; x.fillText("Пробел или касание: пуск", W / 2, H / 2 + 60); }
+  }
+  const mv = (e) => { const r = cv.getBoundingClientRect(); px = (e.clientX - r.left) * (W / r.width) - pw / 2; };
+  cv.addEventListener("pointermove", mv); cv.addEventListener("pointerdown", (e) => { mv(e); launch(); });
+  loop();
+  return { act(a, down) { if (a === "left" || a === "right") held[a] = down; else if (a === "action" && down) launch(); }, destroy() { alive = false; cancelAnimationFrame(raf); } };
+}
+
+/* ---------- Блоки ---------- */
+function blocks(root, api) {
+  const W = 10, H = 20, C = 20, cv = mk(root, W * C, H * C), x = cv.getContext("2d");
+  const SH = [[[1, 1, 1, 1]], [[1, 1], [1, 1]], [[0, 1, 0], [1, 1, 1]], [[1, 0, 0], [1, 1, 1]], [[0, 0, 1], [1, 1, 1]], [[0, 1, 1], [1, 1, 0]], [[1, 1, 0], [0, 1, 1]]];
+  const grid = Array.from({ length: H }, () => Array(W).fill(0));
+  let p, sc = 0, lines = 0, t = 0, dead = false;
+  const hit = (m, px, py) => m.some((r, i) => r.some((v, j) => v && (px + j < 0 || px + j >= W || py + i >= H || (py + i >= 0 && grid[py + i][px + j]))));
+  const rot = (m) => m[0].map((_, j) => m.map((r) => r[j]).reverse());
+  function end() { dead = true; clearTimeout(t); draw(); api.over("Стакан заполнен"); }
+  function spawn() { const i = rnd(7); p = { m: SH[i].map((r) => r.slice()), c: i + 1, x: 3, y: 0 }; if (hit(p.m, p.x, p.y)) end(); }
+  function lock() {
+    p.m.forEach((r, i) => r.forEach((v, j) => { if (v && p.y + i >= 0) grid[p.y + i][p.x + j] = p.c; }));
+    let n = 0; for (let i = H - 1; i >= 0;) { if (grid[i].every(Boolean)) { grid.splice(i, 1); grid.unshift(Array(W).fill(0)); n++; } else i--; }
+    if (n) { lines += n; sc += [0, 100, 300, 500, 800][n]; api.score(sc); }
+    spawn();
+  }
+  function drop() { if (!hit(p.m, p.x, p.y + 1)) p.y++; else lock(); }
+  function tick() { if (dead) return; drop(); draw(); if (!dead) t = setTimeout(tick, Math.max(110, 550 - Math.floor(lines / 5) * 50)); }
+  function cell(i, j, c) { x.fillStyle = `hsl(${c * 50} 65% 56%)`; x.fillRect(j * C + 1, i * C + 1, C - 2, C - 2); }
+  function draw() {
+    x.fillStyle = css("--surface-2"); x.fillRect(0, 0, W * C, H * C);
+    grid.forEach((r, i) => r.forEach((v, j) => { if (v) cell(i, j, v); }));
+    if (p && !dead) p.m.forEach((r, i) => r.forEach((v, j) => { if (v) cell(p.y + i, p.x + j, p.c); }));
+  }
+  spawn(); draw(); t = setTimeout(tick, 550);
+  return {
+    repeat: true,
+    act(a, down) {
+      if (!down || dead) return;
+      if (a === "left" && !hit(p.m, p.x - 1, p.y)) p.x--;
+      else if (a === "right" && !hit(p.m, p.x + 1, p.y)) p.x++;
+      else if (a === "down") drop();
+      else if (a === "up") { const r = rot(p.m); if (!hit(r, p.x, p.y)) p.m = r; else if (!hit(r, p.x - 1, p.y)) { p.m = r; p.x--; } else if (!hit(r, p.x + 1, p.y)) { p.m = r; p.x++; } }
+      else if (a === "action") { while (!hit(p.m, p.x, p.y + 1)) p.y++; lock(); }
+      draw();
+    },
+    destroy() { dead = true; clearTimeout(t); }
+  };
+}
+
+/* ---------- Память ---------- */
+function memory(root, api) {
+  const S = ["●", "■", "▲", "◆", "★", "♥", "♣", "♠"];
+  const deck = [...S, ...S].map((v) => [Math.random(), v]).sort((a, b) => a[0] - b[0]).map((a) => a[1]);
+  const el = document.createElement("div"); el.className = "gmem"; root.appendChild(el);
+  let up = [], ok = new Set(), moves = 0, lock = false, timer = 0;
+  function render() { el.innerHTML = deck.map((v, i) => { const on = ok.has(i), u = up.includes(i); return `<button type="button" data-i="${i}" class="${on ? "ok" : u ? "up" : ""}" aria-label="Карточка ${i + 1}">${on || u ? v : "?"}</button>`; }).join(""); }
+  el.addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b || lock) return;
+    const i = Number(b.dataset.i); if (ok.has(i) || up.includes(i)) return;
+    up.push(i); render();
+    if (up.length === 2) {
+      moves++; api.score(moves);
+      if (deck[up[0]] === deck[up[1]]) { ok.add(up[0]); ok.add(up[1]); up = []; render(); if (ok.size === deck.length) api.over("Готово за " + moves + " ход.", true); }
+      else { lock = true; timer = setTimeout(() => { up = []; lock = false; render(); }, 750); }
+    }
+  });
+  render();
+  return { act() {}, destroy() { clearTimeout(timer); } };
+}
+
+/* ---------- Каталог и управление ---------- */
+const ARROWS = [["left", "◀"], ["up", "▲"], ["down", "▼"], ["right", "▶"]];
+const LIST = [
+  { id: "snake", name: "Змейка", tag: "ЗМ", desc: "Собирайте точки и растите, но не врезайтесь в стены и в себя.", hint: "Стрелки или WASD. На телефоне: свайп по полю или кнопки.", pad: ARROWS, swipe: true, make: snake },
+  { id: "2048", name: "2048", tag: "20", desc: "Сдвигайте плитки и сливайте одинаковые числа, пока не получится 2048.", hint: "Стрелки или WASD. На телефоне: свайп по полю.", pad: ARROWS, swipe: true, make: g2048 },
+  { id: "mines", name: "Сапёр", tag: "СА", desc: "Откройте все безопасные клетки поля 9×9 и не наступите на мины.", hint: "Клик открывает клетку. Флажок: правая кнопка мыши или кнопка режима над полем.", pad: [], make: mines },
+  { id: "bricks", name: "Кирпичи", tag: "КИ", desc: "Отбивайте мяч платформой и разбивайте стену из цветных кирпичей.", hint: "Мышь или палец двигают платформу. Стрелки и пробел тоже работают.", pad: [["left", "◀"], ["action", "Пуск", 1], ["right", "▶"]], make: bricks },
+  { id: "blocks", name: "Блоки", tag: "БЛ", desc: "Укладывайте падающие фигуры в плотные линии, чтобы они исчезали.", hint: "◀ ▶ двигают, ▲ поворачивает, ▼ ускоряет, пробел сбрасывает фигуру.", pad: [["left", "◀"], ["right", "▶"], ["up", "Поворот", 1], ["down", "▼"], ["action", "Сброс", 1]], make: blocks },
+  { id: "memory", name: "Память", tag: "ПА", desc: "Находите пары одинаковых символов за минимум ходов.", hint: "Открывайте по две карточки. Рекорд здесь тем лучше, чем меньше ходов.", pad: [], low: true, make: memory }
+];
+let cur = null, def = null, pointerTimer = 0;
+
+function best(id) { try { const v = localStorage.getItem("shelf-best-" + id); return v === null ? null : Number(v); } catch (e) { return null; } }
+function saveBest(id, v) { try { localStorage.setItem("shelf-best-" + id, String(v)); } catch (e) {} }
+function hue(t) { let h = 0; for (const c of t) h = (h * 31 + c.charCodeAt(0)) % 360; return h; }
+
+function ownCard(g) {
+    const b = best(g.id);
+    return `<article class="card"><div class="cover" style="--h:${hue(g.name)}"><span class="ini">${g.tag}</span></div>
+      <div class="body"><h3>${g.name}</h3><div class="tags"><span class="tag web">На странице</span><span class="tag">Мини-игры</span><span class="tag weak">Слабый ПК</span></div><p class="desc">${g.desc}</p>
+      <div class="foot"><span class="rec">${b === null ? "Рекорда ещё нет" : (g.low ? "Лучший: " + b + " ход." : "Рекорд: " + b)}</span><button class="buy" type="button" data-id="${g.id}">Играть</button></div></div></article>`;
+}
+
+const api = {
+  score(n) {
+    $("sc").textContent = n;
+    if (!def.low) { const b = best(def.id); if (b === null || n > b) { saveBest(def.id, n); $("best").textContent = n; } }
+  },
+  over(msg, won) {
+    if (def.low && won) { const n = Number($("sc").textContent), b = best(def.id); if (b === null || n < b) { saveBest(def.id, n); $("best").textContent = n; } }
+    $("om").textContent = msg; $("over").hidden = false;
+  }
+};
+
+function start() {
+  if (cur) cur.destroy();
+  $("play").innerHTML = ""; $("over").hidden = true; $("sc").textContent = "0";
+  const b = best(def.id); $("best").textContent = b === null ? "—" : b;
+  cur = def.make($("play"), api);
+}
+function openGame(id) {
+  def = LIST.find((g) => g.id === id);
+  $("shelf").hidden = true; $("ext").hidden = true; $("stage").hidden = false;
+  document.querySelector("header").hidden = true;
+  $("gt").textContent = def.name; $("gh").textContent = def.hint;
+  $("board").classList.toggle("swipe", !!def.swipe);
+  $("pad").innerHTML = def.pad.map(([a, l, wide]) => `<button type="button" data-a="${a}" class="${wide ? "wide" : ""}">${l}</button>`).join("");
+  start(); window.scrollTo(0, 0);
+}
+function closeGame() {
+  if (cur) cur.destroy(); cur = null; clearInterval(pointerTimer);
+  $("stage").hidden = true; $("shelf").hidden = false; $("ext").hidden = false; document.querySelector("header").hidden = false;
+  paint();
+}
+
+$("shelf").addEventListener("click", (e) => { const b = e.target.closest("button[data-id]"); if (b) openGame(b.dataset.id); });
+$("back").addEventListener("click", closeGame);
+$("again").addEventListener("click", start);
+
+const KEYS = { ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right", d: "right", D: "right", ArrowUp: "up", w: "up", W: "up", ArrowDown: "down", s: "down", S: "down", " ": "action" };
+addEventListener("keydown", (e) => {
+  if (!cur || $("stage").hidden) return;
+  if (!$("over").hidden && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); start(); return; }
+  if (e.key === "Escape") { closeGame(); return; }
+  const a = KEYS[e.key]; if (!a) return;
+  e.preventDefault();
+  if (e.repeat && !cur.repeat && a !== "left" && a !== "right") return;
+  cur.act(a, true);
+});
+addEventListener("keyup", (e) => { const a = KEYS[e.key]; if (cur && a) cur.act(a, false); });
+
+const pad = $("pad");
+pad.addEventListener("pointerdown", (e) => {
+  const b = e.target.closest("button"); if (!b || !cur) return;
+  const a = b.dataset.a; cur.act(a, true);
+  if (cur.repeat && a !== "action" && a !== "up") { clearInterval(pointerTimer); pointerTimer = setInterval(() => cur && cur.act(a, true), 110); }
+});
+const release = (e) => { clearInterval(pointerTimer); const b = e.target.closest && e.target.closest("button"); if (cur && b) cur.act(b.dataset.a, false); };
+pad.addEventListener("pointerup", release); pad.addEventListener("pointercancel", release); pad.addEventListener("pointerleave", release);
+
+let sw = null;
+$("board").addEventListener("pointerdown", (e) => { sw = { x: e.clientX, y: e.clientY }; });
+$("board").addEventListener("pointerup", (e) => {
+  if (!sw || !def || !def.swipe || !cur) { sw = null; return; }
+  const dx = e.clientX - sw.x, dy = e.clientY - sw.y; sw = null;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < 28) return;
+  const a = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up");
+  cur.act(a, true); cur.act(a, false);
+});
+
+const EXT = [
+  { name: "Lichess", tag: "LI", web: 1, lic: "AGPL-3.0", url: "https://lichess.org/", desc: "Шахматы без рекламы и подписок: партии онлайн, задачи, разбор партий." },
+  { name: "A Dark Room", tag: "AD", web: 1, lic: "MPL-2.0", url: "https://adarkroom.doublespeakgames.com/", desc: "Минималистичная текстовая игра: начинаете с костра в тёмной комнате, а дальше всё разворачивается само." },
+  { name: "Hextris", tag: "HX", web: 1, lic: "GPL-3.0", url: "https://github.com/Hextris/hextris", desc: "Быстрая головоломка в духе тетриса: блоки падают на шестиугольник, который можно вращать." },
+  { name: "Elevator Saga", tag: "ES", web: 1, lic: "MIT", url: "https://play.elevatorsaga.com/", desc: "Игра для программистов: напишите на JavaScript логику лифтов и справьтесь с потоком пассажиров." },
+  { name: "Freeciv", tag: "FC", web: 1, lic: "GPL", url: "https://play.freeciv.org/", desc: "Пошаговая стратегия в духе Civilization: стройте города, развивайте науку и ведите страну к победе." },
+  { name: "The Battle for Wesnoth", tag: "BW", lic: "GPL-2.0+", url: "https://www.wesnoth.org/", desc: "Фэнтезийная пошаговая тактика с кампаниями, сотнями карт и сетевой игрой." },
+  { name: "0 A.D.", tag: "0A", lic: "GPL / MIT", url: "https://play0ad.com/", desc: "Стратегия в реальном времени о древних цивилизациях: экономика, армии и осады." },
+  { name: "OpenTTD", tag: "OT", lic: "GPL-2.0", url: "https://www.openttd.org/", desc: "Транспортный симулятор: прокладывайте дороги и железные дороги и стройте прибыльную сеть." },
+  { name: "Mindustry", tag: "MI", lic: "GPL-3.0", url: "https://mindustrygame.github.io/", desc: "Фабрики плюс башенная оборона: добывайте ресурсы, автоматизируйте производство и отбивайте волны врагов." },
+  { name: "SuperTuxKart", tag: "TK", lic: "GPL-3.0+", url: "https://supertuxkart.net/", desc: "Весёлые картинг-гонки с бонусами, десятками трасс и режимом на нескольких игроков." },
+  { g: "Бесплатные шутеры", name: "Xonotic", tag: "XO", lic: "GPL", url: "https://xonotic.org/", desc: "Быстрый арена-шутер в духе Quake и Unreal Tournament: ракетницы, прыжки, схватки онлайн и с ботами." },
+  { g: "Бесплатные шутеры", name: "AssaultCube", tag: "AC", lic: "Zlib", url: "https://assault.cubers.net/", desc: "Лёгкий реалистичный мультиплеерный шутер, который идёт даже на слабых компьютерах." },
+  { g: "Бесплатные шутеры", name: "Cube 2: Sauerbraten", tag: "C2", lic: "Open Source", url: "https://sauerbraten.org/", desc: "Динамичный аркадный шутер от первого лица с одиночной кампанией, сетью и редактором карт." },
+  { g: "Бесплатные шутеры", name: "Red Eclipse", tag: "RE", lic: "Open Source", url: "https://www.redeclipse.net/", desc: "Арена-шутер с паркуром: бег по стенам, рывки и скольжение." },
+  { g: "Бесплатные шутеры", name: "Warsow", tag: "WS", lic: "Free", url: "https://warsow.net/", desc: "Яркий мультяшный шутер с очень высокой скоростью движения и трюками." },
+  { g: "Бесплатные шутеры", name: "Unvanquished", tag: "UV", lic: "Open Source", url: "https://unvanquished.net/", desc: "Шутер с элементами стратегии: люди и пришельцы строят базы и воюют командами." },
+  { g: "Бесплатные шутеры", name: "Counter-Strike 2", tag: "CS", lic: "Free-to-play", src: "Steam", url: "https://store.steampowered.com/app/730", desc: "Знаменитый тактический шутер: раунды, команды, экономика оружия. Бесплатный в Steam." },
+  { g: "Бесплатные шутеры", name: "Team Fortress 2", tag: "TF", lic: "Free-to-play", src: "Steam", url: "https://store.steampowered.com/app/440", desc: "Командный шутер с девятью классами и мультяшным стилем. Бесплатный в Steam." },
+  { g: "Выживание, как в Rust", name: "Starve.io", tag: "ST", web: 1, lic: "Бесплатно", url: "https://starve.io/", desc: "2D-выживание в браузере: добывайте ресурсы, крафтите, стройте базу и не умрите от голода и холода на сервере с другими игроками." },
+  { g: "Выживание, как в Rust", name: "Devast.io", tag: "DV", web: 1, lic: "Бесплатно", url: "https://devast.io/", desc: "Постапокалипсис с зомби и другими игроками: собирайте лут, стройте убежище и защищайте его. Идёт на любом ПК." },
+  { g: "Выживание, как в Rust", name: "Dynast.io", tag: "DY", web: 1, lic: "Бесплатно", url: "https://dynast.io/", desc: "Выживание на сотню игроков: стройте, крафтите и сражайтесь в браузере." },
+  { g: "Выживание, как в Rust", name: "MooMoo.io", tag: "MM", web: 1, lic: "Бесплатно", url: "https://moomoo.io/", desc: "Свободная карта, сбор ресурсов, постройки и кланы: прокачивайте броню и доминируйте над сервером." },
+  { g: "Выживание, как в Rust", name: "Minecraft Classic", tag: "MC", web: 1, lic: "Бесплатно", url: "https://classic.minecraft.net/", desc: "Официальная браузерная версия самой первой версии Minecraft: свободное строительство из блоков, без скачивания." },
+  { g: "Выживание, как в Rust", name: "Unturned", tag: "UT", lic: "Free-to-play", src: "Steam", url: "https://store.steampowered.com/app/304930", desc: "Самый близкий к Rust вариант, который тянут слабые ПК: выживание среди зомби, крафт, постройки и сервера с друзьями.", weak: 1 },
+  { c: "Выживание", name: "Rust", tag: "RS", lic: "Платная", src: "Steam", url: "https://store.steampowered.com/app/252490", desc: "Оригинал: 3D-выживание на сервере с другими игроками, рейды баз, крафт и постройки. Игра платная." },
+  { c: "Выживание", name: "Veloren", tag: "VL", lic: "GPL-3.0", url: "https://veloren.net/", desc: "Бесплатная воксельная RPG с открытым миром и мультиплеером, вдохновлена Minecraft и Zelda. Игра в активной разработке." },
+  { c: "Выживание", name: "Once Human", tag: "OH", lic: "Free-to-play", src: "Steam", url: "https://store.steampowered.com/app/2139460", desc: "Бесплатное 3D-выживание со стройкой баз, крафтом и PvP в странном постапокалиптическом мире. Требует мощного ПК." },
+  { c: "Выживание", name: "Luanti (Minetest)", tag: "LU", lic: "LGPL-2.1", url: "https://www.luanti.org/", weak: 1, desc: "Открытый аналог Minecraft: воксельный мир, серверы, моды и режим выживания. Идёт на очень старых ПК." },
+  { c: "Выживание", name: "Cataclysm: DDA", tag: "CD", lic: "CC BY-SA", url: "https://cataclysmdda.org/", weak: 1, desc: "Выживание после катастрофы с самым глубоким крафтом: весит мегабайты и запускается практически где угодно." },
+  { c: "Шутеры", name: "Teeworlds", tag: "TW", lic: "Open Source", url: "https://teeworlds.com/", weak: 1, desc: "Мультяшный 2D-шутер с крюком и сетевыми боями. Весит считанные мегабайты, идёт на любом железе." },
+  { c: "Стратегии", name: "OpenRA", tag: "OR", lic: "GPL-3.0", url: "https://www.openra.net/", weak: 1, desc: "Современный движок для классических Command & Conquer и Red Alert: лёгкий, с онлайн-матчами." },
+  { c: "Стратегии", name: "Hedgewars", tag: "HW", lic: "GPL-2.0", url: "https://www.hedgewars.org/", weak: 1, desc: "Пошаговый аналог Worms: команды ёжиков, оружие и взрывающиеся ландшафты. Отлично подходит для игры вдвоём." },
+  { c: "Стратегии", name: "Unciv", tag: "UC", lic: "MPL-2.0", url: "https://github.com/yairm210/Unciv", weak: 1, desc: "Лёгкая версия Civilization V с открытым кодом: города, технологии и дипломатия без рекламы." },
+  { c: "Рогалики и платформеры", name: "SuperTux", tag: "SX", lic: "GPL-3.0+", url: "https://www.supertux.org/", weak: 1, desc: "2D-платформер в духе Super Mario с пингвином Тукс, десятками уровней и редактором." },
+  { c: "Рогалики и платформеры", name: "Shattered Pixel Dungeon", tag: "SP", lic: "GPL-3.0", url: "https://shatteredpixel.com/", weak: 1, desc: "Пиксельный рогалик: каждое прохождение новое, управление простое, нагрузка на ПК почти нулевая." },
+  { c: "Рогалики и платформеры", name: "Dungeon Crawl Stone Soup", tag: "DC", lic: "GPL", url: "https://crawl.develz.org/", weak: 1, desc: "Классический рогалик с десятками рас и классов и сложными подземельями. Работает на самых слабых ПК." }
+];
+const card = (g) => `<article class="card"><div class="cover" style="--h:${hue(g.name)}"><span class="ini">${g.tag}</span></div>
+    <div class="body"><h3>${g.name}</h3><div class="tags"><span class="tag ${g.web ? "web" : ""}">${g.web ? "В браузере" : "Скачать"}</span><span class="tag">${g.c}</span>${g.weak ? '<span class="tag weak">Слабый ПК</span>' : ""}<span class="tag">${g.lic}</span></div><p class="desc">${g.desc}</p>
+    <div class="foot"><span class="rec">${g.src || "Сайт автора"}</span><a class="buy" href="${g.url}" target="_blank" rel="noopener noreferrer">Открыть ↗</a></div></div></article>`;
+const CATS = ["Мини-игры", "Шутеры", "Выживание", "Стратегии", "Головоломки", "Гонки", "Рогалики и платформеры"];
+const CAT_OF = { "Lichess": "Головоломки", "A Dark Room": "Головоломки", "Hextris": "Головоломки", "Elevator Saga": "Головоломки", "Freeciv": "Стратегии", "The Battle for Wesnoth": "Стратегии", "0 A.D.": "Стратегии", "OpenTTD": "Стратегии", "Mindustry": "Стратегии", "SuperTuxKart": "Гонки" };
+const WEAK = new Set(["Lichess", "A Dark Room", "Hextris", "Elevator Saga", "Freeciv", "Starve.io", "Devast.io", "Dynast.io", "MooMoo.io", "Minecraft Classic", "AssaultCube", "Cube 2: Sauerbraten", "The Battle for Wesnoth", "OpenTTD"]);
+EXT.forEach((g) => { g.c = g.c || CAT_OF[g.name] || (g.g === "Бесплатные шутеры" ? "Шутеры" : "Выживание"); if (WEAK.has(g.name)) g.weak = 1; });
+const ALL = [...LIST.map((g) => ({ own: 1, web: 1, weak: 1, c: "Мини-игры", name: g.name, desc: g.desc, id: g.id })), ...EXT];
+const F = { c: "", q: "", web: 0, weak: 0 };
+const test = (g, skipC) => (skipC || !F.c || g.c === F.c) && (!F.web || g.web) && (!F.weak || g.weak) && (!F.q || (g.name + " " + g.desc).toLowerCase().includes(F.q));
+function paint() {
+  const hit = ALL.filter((g) => test(g));
+  $("tabs").innerHTML = [["", "Все"], ...CATS.map((c) => [c, c])].map(([c, t]) => `<button type="button" class="tab${F.c === c ? " on" : ""}" data-c="${c}">${t}<b>${ALL.filter((g) => (!c || g.c === c) && test(g, 1)).length}</b></button>`).join("");
+  $("flags").innerHTML = [["web", "Играть в браузере"], ["weak", "Для слабых ПК"]].map(([k, t]) => `<button type="button" class="chip${F[k] ? " on" : ""}" data-f="${k}">${t}</button>`).join("");
+  $("res").textContent = `Показано ${hit.length} из ${ALL.length}`;
+  $("shelf").innerHTML = hit.length ? hit.map((g) => g.own ? ownCard(LIST.find((x) => x.id === g.id)) : card(g)).join("") : `<p class="hint" style="grid-column:1/-1">Ничего не найдено. Попробуйте сбросить фильтры.</p>`;
+}
+$("tabs").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { F.c = b.dataset.c; paint(); } });
+$("flags").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { F[b.dataset.f] ^= 1; paint(); } });
+$("q").addEventListener("input", (e) => { F.q = e.target.value.trim().toLowerCase(); paint(); });
+$("stats").innerHTML = [[ALL.length, "игр в каталоге"], [ALL.filter((g) => g.web).length, "без скачивания"], [ALL.filter((g) => g.weak).length, "для слабых ПК"]].map(([n, t]) => `<span class="pill"><b>${n}</b>${t}</span>`).join("");
+paint();
+</script>
+
+</body></html>
